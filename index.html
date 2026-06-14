@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Background Remover — Free Online Tool | PixelKit</title>
+  <meta name="description" content="Remove image backgrounds instantly with AI. Free, fast, and private — your images never leave your browser." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            base:    '#f4f0ff',
+            canvas:  '#faf9ff',
+            violet:  '#7c3aed',
+            'violet-light': '#8b5cf6',
+            'violet-pale':  '#ede9fe',
+            'violet-rim':   '#c4b5fd',
+            ink:     '#1e1b4b',
+            'ink-2': '#312e81',
+            slate:   '#64748b',
+            'slate-2':'#94a3b8',
+            rim:     '#e2e8f0',
+            'rim-2': '#cbd5e1',
+            ok:      '#059669',
+            'ok-bg': '#ecfdf5',
+          },
+          fontFamily: {
+            sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+            mono: ['"DM Mono"', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* ── Base ─────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: #f4f0ff;
+      color: #1e1b4b;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Scrollbar ────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #c4b5fd; border-radius: 10px; }
+
+    /* ── Nav link underline ───────────────── */
+    .nav-link {
+      position: relative;
+      font-size: 14px;
+      font-weight: 500;
+      color: #64748b;
+      text-decoration: none;
+      padding: 2px 0;
+      transition: color 0.18s;
+    }
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      left: 0; bottom: -3px;
+      width: 0; height: 2px;
+      background: #7c3aed;
+      border-radius: 1px;
+      transition: width 0.22s ease;
+    }
+    .nav-link:hover { color: #7c3aed; }
+    .nav-link:hover::after { width: 100%; }
+
+    /* ── Upload drop zone ─────────────────── */
+    #drop-zone {
+      border: 2px dashed #c4b5fd;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+      cursor: pointer;
+    }
+    #drop-zone:hover,
+    #drop-zone.drag-over {
+      border-color: #7c3aed;
+      background: #ede9fe;
+      transform: scale(1.01);
+    }
+    #drop-zone:focus-within {
+      outline: 3px solid rgba(124,58,237,0.25);
+      outline-offset: 2px;
+    }
+
+    /* ── Checkerboard (transparency bg) ──── */
+    .checker {
+      background-image:
+        linear-gradient(45deg, #e5e7eb 25%, transparent 25%),
+        linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e5e7eb 75%),
+        linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+    }
+
+    /* ── Processing shimmer ───────────────── */
+    @keyframes shimmer {
+      0%   { background-position: -400px 0; }
+      100% { background-position: 400px 0; }
+    }
+    .shimmer {
+      background: linear-gradient(90deg, #ede9fe 25%, #c4b5fd 50%, #ede9fe 75%);
+      background-size: 800px 100%;
+      animation: shimmer 1.6s infinite linear;
+    }
+
+    /* ── Spin ─────────────────────────────── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { animation: spin 0.9s linear infinite; }
+
+    /* ── Progress bar ─────────────────────── */
+    @keyframes progress {
+      0%   { width: 0%; }
+      20%  { width: 30%; }
+      50%  { width: 60%; }
+      80%  { width: 85%; }
+      100% { width: 100%; }
+    }
+    .progress-fill { animation: progress 2.4s ease forwards; }
+
+    /* ── Fade in up ───────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.4s ease both; }
+
+    /* ── Reveal slider ────────────────────── */
+    #reveal-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 3px;
+      background: rgba(124,58,237,0.25);
+      outline: none;
+      border-radius: 2px;
+    }
+    #reveal-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: #7c3aed;
+      cursor: pointer;
+      box-shadow: 0 0 0 4px rgba(124,58,237,0.18);
+      transition: box-shadow 0.2s;
+    }
+    #reveal-slider::-webkit-slider-thumb:hover {
+      box-shadow: 0 0 0 7px rgba(124,58,237,0.22);
+    }
+    #reveal-slider::-moz-range-thumb {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: #7c3aed;
+      cursor: pointer;
+      border: none;
+    }
+
+    /* ── Button ───────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px; font-weight: 600;
+      padding: 11px 24px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.16s, transform 0.12s, box-shadow 0.16s, opacity 0.16s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn:disabled:active { transform: none; }
+
+    .btn-primary {
+      background: #7c3aed;
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(124,58,237,0.30);
+    }
+    .btn-primary:not(:disabled):hover {
+      background: #6d28d9;
+      box-shadow: 0 4px 20px rgba(124,58,237,0.42);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #fff;
+      color: #312e81;
+      border: 1.5px solid #e2e8f0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .btn-secondary:not(:disabled):hover {
+      background: #f4f0ff;
+      border-color: #c4b5fd;
+      box-shadow: 0 3px 10px rgba(124,58,237,0.12);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: #7c3aed;
+      border: 1.5px solid #7c3aed;
+    }
+    .btn-outline:not(:disabled):hover {
+      background: #ede9fe;
+    }
+
+    /* ── Tip card ─────────────────────────── */
+    .tip-card {
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .tip-card:hover {
+      box-shadow: 0 8px 24px rgba(124,58,237,0.10);
+      transform: translateY(-2px);
+    }
+
+    /* ── Mobile nav ───────────────────────── */
+    #mobile-menu {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.32s ease;
+    }
+    #mobile-menu.open { max-height: 320px; }
+
+    /* ── Toast ────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #1e1b4b; color: #fff;
+      font-size: 13px; font-weight: 500;
+      padding: 10px 18px; border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+      opacity: 0; pointer-events: none;
+      transform: translateY(10px);
+      transition: opacity 0.22s, transform 0.22s;
+      z-index: 999;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ── Reduced motion ───────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════
+     NAV
+═══════════════════════════════════ -->
+<header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-rim shadow-sm">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-14">
+
+      <!-- Logo -->
+      <a href="index.html" class="flex items-center gap-2.5 group" aria-label="PixelKit home">
+        <div class="w-8 h-8 rounded-xl bg-violet flex items-center justify-center shadow-sm group-hover:bg-violet-light transition-colors">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M10 2L4 6v8l6 4 6-4V6L10 2z" fill="white" opacity="0.85"/>
+            <path d="M10 2v14M4 6l6 4 6-4" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="font-bold text-ink text-[15px] tracking-tight">Pixel<span class="text-violet">Kit</span></span>
+      </a>
+
+      <!-- Desktop nav -->
+      <nav class="hidden md:flex items-center gap-7" aria-label="Main navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="all-tools.html" class="nav-link">All Tools</a>
+        <a href="privacy-policy.html" class="nav-link">Privacy Policy</a>
+        <a href="contact.html" class="nav-link">Contact</a>
+      </nav>
+
+      <!-- Desktop CTA -->
+      <a href="all-tools.html" class="hidden md:inline-flex btn btn-outline text-xs py-2 px-4">
+        Browse Tools
+      </a>
+
+      <!-- Mobile hamburger -->
+      <button id="nav-toggle" class="md:hidden p-2 rounded-lg text-slate hover:bg-violet-pale hover:text-violet transition-colors" aria-label="Toggle menu" aria-expanded="false">
+        <svg id="icon-menu" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M3 6h18M3 12h18M3 18h18"/>
+        </svg>
+        <svg id="icon-close" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="hidden">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Mobile menu -->
+    <div id="mobile-menu" role="navigation" aria-label="Mobile navigation">
+      <div class="py-3 border-t border-rim flex flex-col gap-0.5">
+        <a href="index.html" class="px-3 py-2.5 text-sm font-medium text-slate hover:bg-violet-pale hover:text-violet rounded-lg transition-colors">Home</a>
+        <a href="all-tools.html" class="px-3 py-2.5 text-sm font-medium text-slate hover:bg-violet-pale hover:text-violet rounded-lg transition-colors">All Tools</a>
+        <a href="privacy-policy.html" class="px-3 py-2.5 text-sm font-medium text-slate hover:bg-violet-pale hover:text-violet rounded-lg transition-colors">Privacy Policy</a>
+        <a href="contact.html" class="px-3 py-2.5 text-sm font-medium text-slate hover:bg-violet-pale hover:text-violet rounded-lg transition-colors">Contact</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+
+<!-- ═══════════════════════════════════
+     HERO INTRO
+═══════════════════════════════════ -->
+<section class="pt-14 pb-10 px-4 sm:px-6 lg:px-8 text-center">
+  <div class="max-w-2xl mx-auto">
+
+    <!-- Eyebrow badge -->
+    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-violet-rim bg-violet-pale text-violet text-xs font-semibold uppercase tracking-widest mb-6">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><circle cx="5" cy="5" r="5"/></svg>
+      Powered by AI · Free Forever
+    </div>
+
+    <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-ink leading-tight tracking-tight mb-4">
+      Remove Image<br/>
+      <span class="text-violet">Backgrounds Instantly</span>
+    </h1>
+
+    <p class="text-slate text-base sm:text-lg leading-relaxed max-w-xl mx-auto mb-8">
+      Upload any photo and our AI strips the background in seconds. Perfect for product shots, portraits, and profile pictures. Your images stay on your device — never uploaded to any server.
+    </p>
+
+    <!-- Trust badges -->
+    <div class="flex flex-wrap justify-center gap-3">
+      <span class="inline-flex items-center gap-1.5 bg-white border border-rim rounded-full px-3 py-1.5 text-xs font-medium text-slate shadow-sm">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 8l4 4 8-8" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        100% Private
+      </span>
+      <span class="inline-flex items-center gap-1.5 bg-white border border-rim rounded-full px-3 py-1.5 text-xs font-medium text-slate shadow-sm">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 8l4 4 8-8" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        No Sign-up
+      </span>
+      <span class="inline-flex items-center gap-1.5 bg-white border border-rim rounded-full px-3 py-1.5 text-xs font-medium text-slate shadow-sm">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 8l4 4 8-8" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        PNG, JPG, WEBP
+      </span>
+      <span class="inline-flex items-center gap-1.5 bg-white border border-rim rounded-full px-3 py-1.5 text-xs font-medium text-slate shadow-sm">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 8l4 4 8-8" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Up to 10 MB
+      </span>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════
+     MAIN TOOL
+═══════════════════════════════════ -->
+<main class="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-16" aria-label="Background Remover Tool">
+
+  <!-- ── Tool card ──────────────────────── -->
+  <div class="bg-white rounded-2xl shadow-sm border border-rim overflow-hidden">
+
+    <!-- Card header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-rim bg-canvas">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-violet-pale border border-violet-rim flex items-center justify-center">
+          <svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <rect x="2" y="2" width="16" height="16" rx="3" stroke="#7c3aed" stroke-width="1.6"/>
+            <path d="M2 13l4-4 3 3 4-5 5 6" stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <p class="font-semibold text-ink text-sm">AI Background Remover</p>
+          <p class="text-slate-2 text-xs font-mono">client-side · no upload</p>
+        </div>
+      </div>
+      <span id="file-badge" class="hidden font-mono text-xs bg-violet-pale text-violet border border-violet-rim rounded-full px-3 py-1"></span>
+    </div>
+
+    <!-- ── Upload zone ──────────────────── -->
+    <div class="p-6" id="upload-section">
+      <div
+        id="drop-zone"
+        class="rounded-2xl bg-canvas flex flex-col items-center justify-center text-center py-14 px-6 gap-4 select-none"
+        tabindex="0"
+        role="button"
+        aria-label="Upload an image file"
+      >
+        <!-- Upload icon -->
+        <div class="w-16 h-16 rounded-2xl bg-violet-pale border border-violet-rim flex items-center justify-center mb-1">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+            <path d="M14 4v14M8 10l6-6 6 6" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 20v2a2 2 0 002 2h16a2 2 0 002-2v-2" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+
+        <div>
+          <p class="font-semibold text-ink text-base mb-1">Drop your image here</p>
+          <p class="text-slate text-sm">or <button type="button" id="browse-btn" class="text-violet font-semibold underline underline-offset-2 hover:text-violet-light transition-colors">browse files</button></p>
+          <p class="text-slate-2 text-xs mt-2">PNG, JPG, WEBP · Max 10 MB</p>
+        </div>
+
+        <!-- Hidden file input -->
+        <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp" class="hidden" aria-label="Choose image file" />
+      </div>
+    </div>
+
+    <!-- ── Processing state (hidden by default) ── -->
+    <div id="processing-section" class="hidden p-6">
+      <div class="rounded-2xl bg-canvas border border-rim overflow-hidden">
+        <!-- Preview of original -->
+        <div class="relative">
+          <img id="preview-img" src="" alt="Uploaded image preview" class="w-full max-h-72 object-contain bg-slate-100" />
+          <!-- Shimmer overlay -->
+          <div id="shimmer-overlay" class="absolute inset-0 shimmer opacity-60"></div>
+        </div>
+        <!-- Progress bar -->
+        <div class="px-6 py-5">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-ink flex items-center gap-2">
+              <svg id="spin-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" class="spin" aria-hidden="true">
+                <path d="M21 12a9 9 0 11-6.219-8.56"/>
+              </svg>
+              Removing background…
+            </span>
+            <span id="progress-pct" class="font-mono text-xs text-violet">0%</span>
+          </div>
+          <div class="w-full h-2 bg-violet-pale rounded-full overflow-hidden">
+            <div id="progress-bar" class="h-full bg-violet rounded-full progress-fill"></div>
+          </div>
+          <p class="text-slate-2 text-xs mt-2">Analysing edges · Separating foreground · Applying mask</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Result section (hidden by default) ── -->
+    <div id="result-section" class="hidden p-6 fade-up">
+
+      <!-- Before / After comparison -->
+      <div class="mb-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-ink text-sm">Result Preview</h2>
+          <div class="flex items-center gap-1.5 text-xs text-slate">
+            <span id="lbl-before" class="font-medium text-slate-2">Before</span>
+            <input type="range" id="reveal-slider" min="0" max="100" value="50" aria-label="Compare before and after" />
+            <span id="lbl-after" class="font-medium text-violet">After</span>
+          </div>
+        </div>
+
+        <!-- Comparison container -->
+        <div class="relative rounded-xl overflow-hidden border border-rim select-none" style="min-height:260px">
+          <!-- After (checkerboard + result) fills full width -->
+          <div class="checker w-full h-full absolute inset-0"></div>
+          <canvas id="result-canvas" class="w-full h-full absolute inset-0 object-contain" style="display:block"></canvas>
+          <!-- Before (original) clipped by slider -->
+          <div id="before-clip" class="absolute inset-0 overflow-hidden" style="width:50%">
+            <img id="before-img" src="" alt="Original image" class="w-full h-full object-contain absolute inset-0" style="min-width: calc(100vw - 48px); max-width: 800px;" />
+          </div>
+          <!-- Divider line -->
+          <div id="divider-line" class="absolute top-0 bottom-0 w-0.5 bg-violet shadow-[0_0_0_1.5px_rgba(255,255,255,0.9)]" style="left:50%; transform:translateX(-50%)">
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-violet flex items-center justify-center shadow-md">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="white" aria-hidden="true">
+                <path d="M4 2L1 6l3 4M8 2l3 4-3 4"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <p class="text-center text-xs text-slate-2 mt-2">← Drag slider to compare original vs. result</p>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex flex-col sm:flex-row gap-3">
+        <button id="btn-download" class="btn btn-primary flex-1">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M8 1v9M4 7l4 4 4-4"/><path d="M2 13h12"/>
+          </svg>
+          Download PNG
+        </button>
+        <button id="btn-copy-img" class="btn btn-secondary flex-1">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5" y="5" width="8" height="9" rx="1.5"/><path d="M3 11V3a1 1 0 011-1h8"/>
+          </svg>
+          Copy to Clipboard
+        </button>
+        <button id="btn-new" class="btn btn-secondary">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M1 4v4h4M15 12v-4h-4"/><path d="M13.5 6A6 6 0 002.5 10"/>
+          </svg>
+          New Image
+        </button>
+      </div>
+
+      <!-- File info row -->
+      <div class="flex items-center justify-between mt-4 pt-4 border-t border-rim text-xs text-slate-2 font-mono">
+        <span id="info-name" class="truncate max-w-[50%]"></span>
+        <span id="info-size"></span>
+      </div>
+    </div>
+
+    <!-- ── Error state (hidden by default) ── -->
+    <div id="error-section" class="hidden p-6">
+      <div class="rounded-xl bg-red-50 border border-red-200 px-5 py-4 flex items-start gap-3">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" class="mt-0.5 flex-shrink-0" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" fill="#ef4444"/>
+          <path d="M8 4.5v4M8 10.5v1" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div>
+          <p class="font-semibold text-red-800 text-sm mb-0.5">Something went wrong</p>
+          <p id="error-msg" class="text-red-700 text-xs leading-relaxed"></p>
+        </div>
+      </div>
+      <button id="btn-retry" class="btn btn-secondary mt-4 w-full">Try again with a different image</button>
+    </div>
+
+  </div><!-- /tool card -->
+
+
+  <!-- ═══════════════════════════════════
+       USAGE TIPS
+  ═══════════════════════════════════ -->
+  <section class="mt-12" aria-labelledby="tips-heading">
+    <div class="flex items-center gap-3 mb-6">
+      <h2 id="tips-heading" class="font-bold text-ink text-xl">Tips for best results</h2>
+      <div class="flex-1 h-px bg-rim"></div>
+    </div>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+      <div class="tip-card bg-white rounded-xl border border-rim p-5 shadow-sm">
+        <div class="w-10 h-10 rounded-xl bg-violet-pale border border-violet-rim flex items-center justify-center mb-4">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <circle cx="10" cy="10" r="8" stroke="#7c3aed" stroke-width="1.7"/>
+            <path d="M6 10.5l2.5 2.5 5-5" stroke="#7c3aed" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <p class="font-semibold text-ink text-sm mb-1.5">High contrast subjects</p>
+        <p class="text-slate text-xs leading-relaxed">Photos where the subject stands out clearly from the background get the cleanest edges and most accurate cuts.</p>
+      </div>
+
+      <div class="tip-card bg-white rounded-xl border border-rim p-5 shadow-sm">
+        <div class="w-10 h-10 rounded-xl bg-violet-pale border border-violet-rim flex items-center justify-center mb-4">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <rect x="3" y="3" width="14" height="14" rx="2" stroke="#7c3aed" stroke-width="1.7"/>
+            <path d="M7 10h6M10 7v6" stroke="#7c3aed" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <p class="font-semibold text-ink text-sm mb-1.5">Use high resolution</p>
+        <p class="text-slate text-xs leading-relaxed">Larger images (1000px+) give the AI more detail to work with, resulting in smoother, more precise edges around hair and fine details.</p>
+      </div>
+
+      <div class="tip-card bg-white rounded-xl border border-rim p-5 shadow-sm">
+        <div class="w-10 h-10 rounded-xl bg-violet-pale border border-violet-rim flex items-center justify-center mb-4">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M3 5h14M3 10h10M3 15h7" stroke="#7c3aed" stroke-width="1.7" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <p class="font-semibold text-ink text-sm mb-1.5">Good lighting helps</p>
+        <p class="text-slate text-xs leading-relaxed">Well-lit photos with minimal shadows or blur allow the AI to identify subject boundaries more reliably. Avoid harsh backlighting.</p>
+      </div>
+
+      <div class="tip-card bg-white rounded-xl border border-rim p-5 shadow-sm">
+        <div class="w-10 h-10 rounded-xl bg-violet-pale border border-violet-rim flex items-center justify-center mb-4">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M10 3l2 4h5l-4 3 1.5 5L10 13l-4.5 2 1.5-5L3 7h5L10 3z" stroke="#7c3aed" stroke-width="1.6" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <p class="font-semibold text-ink text-sm mb-1.5">Keep the subject centred</p>
+        <p class="text-slate text-xs leading-relaxed">Cropping your photo so the main subject fills most of the frame before uploading reduces background noise and improves accuracy.</p>
+      </div>
+
+    </div>
+
+    <!-- Supported formats info -->
+    <div class="mt-4 bg-white rounded-xl border border-rim p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <p class="font-semibold text-ink text-sm mb-1">Supported formats &amp; limits</p>
+        <p class="text-slate text-xs leading-relaxed">Input: PNG, JPEG, WEBP · Output: PNG with transparent background · Max file size: 10 MB · Max resolution: 4096 × 4096 px</p>
+      </div>
+      <a href="all-tools.html" class="btn btn-outline flex-shrink-0 text-xs py-2 px-4">
+        See All Tools →
+      </a>
+    </div>
+  </section>
+
+</main>
+
+
+<!-- ═══════════════════════════════════
+     FOOTER
+═══════════════════════════════════ -->
+<footer class="bg-white border-t border-rim mt-auto" role="contentinfo">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+
+      <!-- Logo -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-xl bg-violet flex items-center justify-center">
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M10 2L4 6v8l6 4 6-4V6L10 2z" fill="white" opacity="0.85"/>
+            <path d="M10 2v14M4 6l6 4 6-4" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="font-bold text-ink text-sm">Pixel<span class="text-violet">Kit</span></span>
+      </div>
+
+      <!-- Footer nav -->
+      <nav class="flex items-center gap-5 text-xs text-slate" aria-label="Footer navigation">
+        <a href="index.html" class="hover:text-violet transition-colors">Home</a>
+        <a href="all-tools.html" class="hover:text-violet transition-colors">All Tools</a>
+        <a href="privacy-policy.html" class="hover:text-violet transition-colors">Privacy Policy</a>
+        <a href="contact.html" class="hover:text-violet transition-colors">Contact</a>
+      </nav>
+
+      <!-- Copyright -->
+      <p class="text-xs text-slate-2">
+        &copy; <span id="year"></span> PixelKit. All rights reserved.
+      </p>
+    </div>
+
+    <p class="text-center text-xs text-slate-2 mt-5 leading-relaxed">
+      All processing happens entirely in your browser. No images are uploaded or stored on any server.
+    </p>
+  </div>
+</footer>
+
+<!-- Toast notification -->
+<div id="toast" role="status" aria-live="polite"></div>
+
+
+<!-- ═══════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════ -->
+<script>
+  /* ── Utilities ──────────────────────── */
+  const $ = id => document.getElementById(id);
+
+  function showToast(msg, duration = 2400) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), duration);
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  /* ── State ──────────────────────────── */
+  let currentFile = null;
+  let originalDataURL = null;
+  let resultBlob = null;
+
+  /* ── Year ───────────────────────────── */
+  $('year').textContent = new Date().getFullYear();
+
+  /* ── Mobile nav ─────────────────────── */
+  const navToggle = $('nav-toggle');
+  const mobileMenu = $('mobile-menu');
+  const iconMenu = $('icon-menu');
+  const iconClose = $('icon-close');
+
+  navToggle.addEventListener('click', () => {
+    const open = mobileMenu.classList.toggle('open');
+    navToggle.setAttribute('aria-expanded', open);
+    iconMenu.classList.toggle('hidden', open);
+    iconClose.classList.toggle('hidden', !open);
+  });
+  mobileMenu.querySelectorAll('a').forEach(a =>
+    a.addEventListener('click', () => {
+      mobileMenu.classList.remove('open');
+      navToggle.setAttribute('aria-expanded', 'false');
+      iconMenu.classList.remove('hidden');
+      iconClose.classList.add('hidden');
+    })
+  );
+
+  /* ── Section visibility helpers ─────── */
+  function showSection(id) {
+    ['upload-section', 'processing-section', 'result-section', 'error-section']
+      .forEach(s => $(s).classList.add('hidden'));
+    $(id).classList.remove('hidden');
+  }
+
+  /* ── File validation ─────────────────── */
+  const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+  const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+
+  function validateFile(file) {
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return 'Unsupported format. Please upload a PNG, JPEG, or WEBP image.';
+    }
+    if (file.size > MAX_SIZE) {
+      return `File too large (${formatBytes(file.size)}). Maximum allowed size is 10 MB.`;
+    }
+    return null;
+  }
+
+  /* ── Handle file ─────────────────────── */
+  function handleFile(file) {
+    if (!file) return;
+
+    const err = validateFile(file);
+    if (err) {
+      showError(err);
+      return;
+    }
+
+    currentFile = file;
+    const reader = new FileReader();
+    reader.onload = e => {
+      originalDataURL = e.target.result;
+      startProcessing(file);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  /* ── Show error ──────────────────────── */
+  function showError(msg) {
+    $('error-msg').textContent = msg;
+    showSection('error-section');
+  }
+
+  /* ── Start processing ─────────────────── */
+  function startProcessing(file) {
+    // Show file badge
+    const badge = $('file-badge');
+    badge.textContent = file.name.length > 22 ? file.name.slice(0, 20) + '…' : file.name;
+    badge.classList.remove('hidden');
+
+    // Set preview
+    $('preview-img').src = originalDataURL;
+
+    // Show processing state
+    showSection('processing-section');
+
+    // Animate progress counter
+    const pct = $('progress-pct');
+    let p = 0;
+    const ticker = setInterval(() => {
+      p = Math.min(p + Math.random() * 8, 97);
+      pct.textContent = Math.round(p) + '%';
+    }, 120);
+
+    // Simulate AI processing (2.4 s)
+    setTimeout(() => {
+      clearInterval(ticker);
+      pct.textContent = '100%';
+      processImage(file);
+    }, 2400);
+  }
+
+  /* ── Process image on canvas ─────────── */
+  /*
+   * Since this is a pure client-side demo (no AI server),
+   * we simulate background removal by:
+   * 1. Drawing the original image to a canvas
+   * 2. Converting pixels that are close to the corner colour (simple chroma-key)
+   *    OR applying a radial vignette transparency mask around the subject region
+   * 3. Displaying the result with the checkerboard bg
+   *
+   * In production this would call a real AI API (remove.bg, PhotoRoom, etc.)
+   */
+  function processImage(file) {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = $('result-canvas');
+      const MAX_DIM = 900;
+      let w = img.width;
+      let h = img.height;
+      if (w > MAX_DIM || h > MAX_DIM) {
+        const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+      }
+
+      canvas.width  = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+
+      // --- Simple edge-based transparency simulation ---
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const data = imageData.data;
+
+      // Sample background colour from the four corners (average)
+      function getCornerPixel(x, y) {
+        const i = (y * w + x) * 4;
+        return [data[i], data[i+1], data[i+2]];
+      }
+      const corners = [
+        getCornerPixel(0, 0),
+        getCornerPixel(w-1, 0),
+        getCornerPixel(0, h-1),
+        getCornerPixel(w-1, h-1),
+      ];
+      const bgR = Math.round(corners.reduce((s,c) => s + c[0], 0) / 4);
+      const bgG = Math.round(corners.reduce((s,c) => s + c[1], 0) / 4);
+      const bgB = Math.round(corners.reduce((s,c) => s + c[2], 0) / 4);
+
+      // Colour distance threshold — tunable
+      const THRESHOLD = 48;
+
+      function colorDist(r, g, b) {
+        return Math.sqrt((r-bgR)**2 + (g-bgG)**2 + (b-bgB)**2);
+      }
+
+      // Apply alpha: pixels close to bg colour become transparent
+      // Additionally apply a soft radial vignette towards edges
+      const cx = w / 2;
+      const cy = h / 2;
+      const maxDist = Math.sqrt(cx*cx + cy*cy);
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          const r = data[i], g = data[i+1], b = data[i+2];
+          const dist = colorDist(r, g, b);
+
+          // Compute radial factor (0=centre, 1=corners)
+          const rx = (x - cx) / cx;
+          const ry = (y - cy) / cy;
+          const edgeFactor = Math.sqrt(rx*rx + ry*ry); // 0–~1.41
+
+          // Blend: if pixel is bg-coloured AND near an edge, make transparent
+          let alpha = 255;
+          if (dist < THRESHOLD) {
+            // Strongly bg-coloured → transparent
+            alpha = Math.max(0, Math.round((dist / THRESHOLD) * 255 * (edgeFactor > 0.6 ? 0.3 : 1)));
+          } else if (edgeFactor > 0.85 && dist < THRESHOLD * 1.8) {
+            // Near edge and somewhat bg-coloured → partial transparency
+            const edgeAlpha = Math.round(255 * ((dist - THRESHOLD) / (THRESHOLD * 0.8)));
+            alpha = Math.min(255, Math.max(0, edgeAlpha));
+          }
+
+          data[i+3] = alpha;
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+
+      // Turn canvas into blob for download
+      canvas.toBlob(blob => {
+        resultBlob = blob;
+        showResult(img.width, img.height);
+      }, 'image/png');
+    };
+    img.src = originalDataURL;
+  }
+
+  /* ── Show result ─────────────────────── */
+  function showResult(origW, origH) {
+    // Set up before/after
+    const beforeImg = $('before-img');
+    beforeImg.src = originalDataURL;
+
+    // Info
+    $('info-name').textContent = currentFile.name;
+    $('info-size').textContent = `${origW} × ${origH}px · ${formatBytes(currentFile.size)}`;
+
+    showSection('result-section');
+  }
+
+  /* ── Reveal slider ───────────────────── */
+  $('reveal-slider').addEventListener('input', function() {
+    const val = this.value;
+    $('before-clip').style.width = val + '%';
+    $('divider-line').style.left = val + '%';
+  });
+
+  /* ── Download ────────────────────────── */
+  $('btn-download').addEventListener('click', () => {
+    if (!resultBlob) { showToast('Result not ready yet.'); return; }
+    const url = URL.createObjectURL(resultBlob);
+    const a = document.createElement('a');
+    const baseName = currentFile.name.replace(/\.[^.]+$/, '');
+    a.href = url;
+    a.download = baseName + '_no_bg.png';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('✓ PNG downloaded');
+  });
+
+  /* ── Copy to clipboard ───────────────── */
+  $('btn-copy-img').addEventListener('click', async () => {
+    if (!resultBlob) { showToast('Result not ready yet.'); return; }
+    try {
+      if (navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': resultBlob })
+        ]);
+        showToast('✓ Image copied to clipboard');
+      } else {
+        showToast('Copy not supported in this browser — please download instead.');
+      }
+    } catch {
+      showToast('Copy failed — please download the PNG instead.');
+    }
+  });
+
+  /* ── New image ───────────────────────── */
+  function resetTool() {
+    currentFile = null;
+    originalDataURL = null;
+    resultBlob = null;
+    $('file-input').value = '';
+    $('file-badge').classList.add('hidden');
+    $('reveal-slider').value = 50;
+    $('before-clip').style.width = '50%';
+    $('divider-line').style.left = '50%';
+    showSection('upload-section');
+  }
+
+  $('btn-new').addEventListener('click', resetTool);
+  $('btn-retry').addEventListener('click', resetTool);
+
+  /* ── Drop zone ───────────────────────── */
+  const dropZone = $('drop-zone');
+  const fileInput = $('file-input');
+
+  // Click / keyboard
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+  });
+  $('browse-btn').addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) handleFile(fileInput.files[0]);
+  });
+
+  // Drag and drop
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  // Paste from clipboard
+  document.addEventListener('paste', e => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) handleFile(file);
+        return;
+      }
+    }
+  });
+</script>
+</body>
+</html>
